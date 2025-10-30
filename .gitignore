@@ -220,9 +220,6 @@ node_modules/
 .next/
 out/
 
-# Production
-/build
-
 # Misc
 .DS_Store
 *.pem
@@ -234,10 +231,6 @@ yarn-error.log*
 
 # Local env files
 .env*.local
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
 
 # Vercel
 .vercel
