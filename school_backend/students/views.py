@@ -34,4 +34,3 @@ class StudentViewSet(viewsets.ModelViewSet):
     search_fields = ['full_name', 'code', 'email']
     ordering_fields = ['full_name', 'code', 'email', 'group']
     ordering = ['code']
-

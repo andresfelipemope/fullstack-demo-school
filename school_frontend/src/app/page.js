@@ -1,5 +1,5 @@
-
 "use client";
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,29 +14,56 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination"
+import {
+  Dialog,
+  DialogClose,
+  DialogFooter,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 import { ArrowUpIcon, ArrowDownIcon } from "lucide-react";
 import { Field, FieldLabel } from "@/components/ui/field";
 
 const API_BASE_URL = "http://localhost:8000";
 
-
-
-
-
 export default function Home() {
   const {
-    register,
-    handleSubmit,
-    watch,
-    formState: { errors },
-  } = useForm()
+  register,
+  reset,
+  handleSubmit,
+  watch,
+  formState: { errors },
+  } = useForm({
+    defaultValues: {
+      full_name: "",
+      email: "",
+      code: "",
+    },
+  });
   const [students, setStudents] = useState([]);
   const [query, setQuery] = useState("");
-  const [ordering, setOrdering] = useState("full_name")
+  const [ordering, setOrdering] = useState("full_name");
+  const [pageInfo, setPageInfo] = useState({next: null, previous: null});
+  const hasNextPage = Boolean(pageInfo.next);
+  const hasPreviousPage = Boolean(pageInfo.previous);
+  const [page, setPage] = useState(1);
+  const [open, setOpen] = useState(false);
 
   const loadStudents = async () => {
     console.log("Haciendo búsqueda de... ", query)
-    const url = `${API_BASE_URL}/students/?search=${query}&ordering=${ordering}`
+    const url = `${API_BASE_URL}/students/?search=${query}&ordering=${ordering}&page=${page}`
     const res = await fetch(url);
     const data = await res.json();
     return data;
@@ -53,10 +80,15 @@ export default function Home() {
   }
 
   useEffect(() => {
+    setPage(1);
+  }, [query]);
+
+  useEffect(() => {
     loadStudents().then((data) => {
-      setStudents(data);
+      setStudents(data.results);
+      setPageInfo({next:data.next, previous:data.previous})
     });
-  }, [query, ordering]);
+  }, [query, ordering, page]);
 
   const onSubmit = async (data) => {
     console.log("Submitting data: ", data);
@@ -71,11 +103,12 @@ export default function Home() {
     if (response.ok) {
       const newStudent = await response.json();
       loadStudents().then((data) => {
-      setStudents(data);
+      setStudents(data.results);
     });
       // setStudents([newStudent,...students]);
+      reset();
       toast.success("Estudiante agregado con éxito");
-
+      setOpen(false);
     }
     else {
       const errorData = await response.json();
@@ -94,7 +127,7 @@ export default function Home() {
   }
 
   return (
-    <Card className="w-96 mx-auto mt-4">
+    <Card className="w-130 mx-auto mt-4">
       <CardHeader>
         <CardTitle>Students</CardTitle>
       </CardHeader>
@@ -108,41 +141,83 @@ export default function Home() {
             {ordering === 'code' ? <ArrowDownIcon /> : <ArrowUpIcon />}
           </Button>
         </div>
+
         <hr className="h-px my-2 bg-gray-200 border-0 dark:bg-gray-700"></hr>
 
-        <div className="p-4 h-96 overflow-y-auto">
+        <div className="p-4 h-fit overflow-y-auto">
           <ul>
-            {students.map((student) => (
+            {students && students.length > 0 ?(students.map((student) => (
               <li key={student.code} className="text-md font-medium my-2 flex flex-row justify-between" title={student.email}>
-                <div>
+                <a href={`/${student.code}`}>
                   {student.full_name}
-
-                </div>
+                </a>
                 <div>
                   {student.code}
                 </div>
               </li>
-            ))}
+            )))
+            :
+              <p>No hay alumnos</p>
+            }
           </ul>
+          <Pagination>
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious href="#" 
+                onClick={()=>{hasPreviousPage && setPage(page-1)}}
+                className={!hasPreviousPage ? "pointer-events-none opacity-50" : ""}
+                />
+              </PaginationItem>
+              <PaginationItem>
+                <PaginationNext href="#" 
+                onClick={()=>{hasNextPage && setPage(page+1)}}
+                className={!hasNextPage ? "pointer-events-none opacity-50" : ""}
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
         </div>
+
         <hr className="h-px my-2 bg-gray-200 border-0 dark:bg-gray-700"></hr>
 
-        <div>
-          <Field className="mt-4">
-            <FieldLabel htmlFor="full_name" >Nombre completo</FieldLabel>
-            <Input id="full_name" placeholder="Ingresa el nombre" {...register("full_name", { required: true })}></Input>
-          </Field>
-          <Field className="mt-4">
-            <FieldLabel htmlFor="email">Email</FieldLabel>
-            <Input id="email" placeholder="Ingresa el email" {...register("email", { required: true })}></Input>
-          </Field>
-          <Field className="mt-4">
-            <FieldLabel htmlFor="code">Código</FieldLabel>
-            <Input id="code" placeholder="Ingresa el código" {...register("code", { required: true })}></Input>
-          </Field>
-          <Button className="my-2" onClick={handleSubmit(onSubmit)}>
-            Agregar estudiante
-          </Button>
+        <div className="flex justify-center">
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger onClick={()=>{setOpen(true)}} className="m-2 p-2 rounded-xl bg-black text-white">
+              Agregar Estudiante
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Peticion para agregar un nuevo estudiante</DialogTitle>
+                <DialogDescription>
+                  Asegurate que todos los campos esten llenos
+                </DialogDescription>
+              </DialogHeader>
+
+                <Field className="mt-4">
+                  <FieldLabel htmlFor="full_name" >Nombre completo</FieldLabel>
+                  <Input id="full_name" placeholder="Ingresa el nombre" {...register("full_name", { required: true })}></Input>
+                </Field>
+                <Field className="mt-4">
+                  <FieldLabel htmlFor="email">Email</FieldLabel>
+                  <Input id="email" placeholder="Ingresa el email" {...register("email", { required: true })}></Input>
+                </Field>
+                <Field className="mt-4">
+                  <FieldLabel htmlFor="code">Código</FieldLabel>
+                  <Input id="code" placeholder="Ingresa el código" {...register("code", { required: true })}></Input>
+                </Field>
+
+                <DialogFooter className="sm:justify-center">
+                  <DialogClose asChild>
+                    <Button className="my-2" variant="secondary" onClick={handleSubmit(onSubmit)}>
+                      Agregar estudiante
+                    </Button>
+                  </DialogClose>
+                </DialogFooter>
+
+            </DialogContent>
+          </Dialog>
+
+          
         </div>
       </CardContent>
     </Card>
